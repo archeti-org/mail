@@ -24,7 +24,7 @@ class MailMail(models.Model):
         return False
 
     def _postprocess_sent_message(
-        self, success_pids, failure_reason=False, failure_type=None
+        self, success_pids, success_emails, failure_reason=False, failure_type=None
     ):
         """Set mailing traces in error according to mail tracking state
 
@@ -59,5 +59,5 @@ class MailMail(models.Model):
             MailMail,
             self.with_context(_ignore_write_trace_postprocess_ids=processed_ids),
         )._postprocess_sent_message(
-            success_pids, failure_reason=failure_reason, failure_type=failure_type
+            success_pids, success_emails, failure_reason, failure_type
         )

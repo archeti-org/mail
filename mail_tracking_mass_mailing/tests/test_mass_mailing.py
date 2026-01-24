@@ -9,13 +9,13 @@ from unittest import mock
 from odoo.tests.common import TransactionCase, tagged
 from odoo.tools import mute_logger
 
-from odoo.addons.base.tests.common import DISABLED_MAIL_CONTEXT
+from odoo.addons.base.tests.common import DISABLED_MAIL_CONTEXT, MockSmtplibCase
 
-mock_send_email = "odoo.addons.base.models.ir_mail_server.IrMailServer.send_email"
+mock_send_email = "odoo.addons.base.models.ir_mail_server.IrMail_Server.send_email"
 
 
 @tagged("-at_install", "post_install")
-class TestMassMailing(TransactionCase):
+class TestMassMailing(TransactionCase, MockSmtplibCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -47,7 +47,8 @@ class TestMassMailing(TransactionCase):
     def test_smtp_error(self):
         with mock.patch(mock_send_email) as mock_func:
             mock_func.side_effect = Warning("Mock test error")
-            self.mailing.action_send_mail()
+            with self.mock_smtplib_connection():
+                self.mailing.action_send_mail()
             for stat in self.mailing.mailing_trace_ids:
                 if stat.mail_mail_id:
                     stat.mail_mail_id.send()
@@ -63,7 +64,8 @@ class TestMassMailing(TransactionCase):
             self.assertTrue(self.contact_a.email_bounced)
 
     def test_tracking_email_link(self):
-        self.mailing.action_send_mail()
+        with self.mock_smtplib_connection():
+            self.mailing.action_send_mail()
         for stat in self.mailing.mailing_trace_ids:
             if stat.mail_mail_id:
                 stat.mail_mail_id.send()
@@ -85,7 +87,8 @@ class TestMassMailing(TransactionCase):
             self.assertEqual(stat.trace_status, "open")
 
     def _tracking_email_bounce(self, event_type, state):
-        self.mailing.action_send_mail()
+        with self.mock_smtplib_connection():
+            self.mailing.action_send_mail()
         for stat in self.mailing.mailing_trace_ids:
             if stat.mail_mail_id:
                 stat.mail_mail_id.send()

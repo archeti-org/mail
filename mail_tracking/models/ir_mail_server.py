@@ -38,7 +38,7 @@ class IrMailServer(models.Model):
             r'<img[^>]*data-odoo-tracking-email=["\'][0-9]*["\'][^>]*>', "", body
         )
 
-    def build_email(
+    def _build_email__(
         self,
         email_from,
         email_to,
@@ -78,11 +78,11 @@ class IrMailServer(models.Model):
             # the tracking image in case it's to be disabled
             if self._tracking_img_disabled(tracking_email_id):
                 body = self._tracking_img_remove(body)
-        msg = super().build_email(
-            email_from=email_from,
-            email_to=email_to,
-            subject=subject,
-            body=body,
+        return super()._build_email__(
+            email_from,
+            email_to,
+            subject,
+            body,
             email_cc=email_cc,
             email_bcc=email_bcc,
             reply_to=reply_to,
@@ -95,7 +95,6 @@ class IrMailServer(models.Model):
             body_alternative=body_alternative,
             subtype_alternative=subtype_alternative,
         )
-        return msg
 
     def _tracking_email_get(self, message):
         try:

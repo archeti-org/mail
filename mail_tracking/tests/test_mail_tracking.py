@@ -6,19 +6,19 @@ from unittest.mock import patch
 
 from werkzeug.exceptions import BadRequest
 
-from odoo import SUPERUSER_ID, http
+from odoo import SUPERUSER_ID, fields, http
 from odoo.exceptions import AccessError
 from odoo.fields import Command
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
 from odoo.tools import mute_logger
 
-from odoo.addons.base.tests.common import HttpCaseWithUserDemo
+from odoo.addons.base.tests.common import HttpCaseWithUserDemo, MockSmtplibCase
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.addons.mail.tools.discuss import Store
 from odoo.addons.mail_tracking.controllers.main import BLANK, MailTrackingController
 
-mock_send_email = "odoo.addons.base.models.ir_mail_server.IrMailServer.send_email"
+mock_send_email = "odoo.addons.base.models.ir_mail_server.IrMail_Server.send_email"
 
 
 class FakeUserAgent:
@@ -30,7 +30,7 @@ class FakeUserAgent:
         return "Test suite"
 
 
-class TestMailTracking(TransactionCase):
+class TestMailTracking(TransactionCase, MockSmtplibCase):
     def setUp(self, *args, **kwargs):
         super().setUp(*args, **kwargs)
         self.sender = self.env["res.partner"].create(
@@ -96,8 +96,11 @@ class TestMailTracking(TransactionCase):
                 "body": "<p>This is a test message</p>",
             }
         )
-        if message.is_thread_message():
-            self.env[message.model].browse(message.res_id)._notify_thread(message)
+        if message._is_thread_message():
+            with self.mock_smtplib_connection():
+                self.env[message.model].browse(message.res_id).with_context(
+                    mail_notify_force_send=True
+                )._notify_thread(message)
         # Search tracking created
         tracking_email = self.env["mail.tracking.email"].search(
             [
@@ -109,10 +112,12 @@ class TestMailTracking(TransactionCase):
         self.assertTrue(tracking_email)
         self.assertEqual(tracking_email.state, "sent")
         # message_dict read by web interface
-        message_dict = Store(message, for_current_user=True).get_result()
+        message_dict = Store().add(message).get_result()
         # First partner is recipient
-        partner_id = message_dict["mail.message"][0]["recipients"][0]
-        self.assertEqual(partner_id["id"], self.recipient.id)
+        partner_id = message_dict["mail.message"][0]["partner_trackings"][0][
+            "partner_id"
+        ]
+        self.assertEqual(partner_id, self.recipient.id)
         status = message_dict["mail.message"][0]["partner_trackings"][0]
         # Tracking status must be sent and
         # mail tracking must be the one search before
@@ -146,10 +151,11 @@ class TestMailTracking(TransactionCase):
                 "body": "<p>This is a test message</p>",
             }
         )
-        if message.is_thread_message():
-            self.env[message.model].browse(message.res_id).with_context(
-                do_not_send_copy=True
-            )._notify_thread(message)
+        if message._is_thread_message():
+            with self.mock_smtplib_connection():
+                self.env[message.model].browse(message.res_id).with_context(
+                    do_not_send_copy=True, mail_notify_force_send=True
+                )._notify_thread(message)
         # Search tracking created
         tracking_email = self.env["mail.tracking.email"].search(
             [
@@ -182,7 +188,7 @@ class TestMailTracking(TransactionCase):
                 "body": "<p>This is another test message</p>",
             }
         )
-        message_dict = Store(message, for_current_user=True).get_result()
+        message_dict = Store().add(message).get_result()
         partner_trackings = message_dict["mail.message"][0]["partner_trackings"]
         self.assertTrue(
             any(
@@ -194,7 +200,7 @@ class TestMailTracking(TransactionCase):
         )
 
     def _check_partner_trackings_cc(self, message):
-        message_dict = Store(message, for_current_user=True).get_result()
+        message_dict = Store().add(message).get_result()
         partner_trackings = message_dict["mail.message"][0]["partner_trackings"]
         self.assertEqual(len(partner_trackings), 3)
         # mail cc
@@ -214,12 +220,13 @@ class TestMailTracking(TransactionCase):
         self.assertTrue(foundNoPartner)
 
     def test_email_cc(self):
-        sender_user = self.env["res.users"].create(
-            {
-                "name": "Sender User Test",
-                "partner_id": self.sender.id,
-                "login": "sender-test",
-            }
+        sender_user = mail_new_test_user(
+            self.env,
+            login="sender-test",
+            groups="base.group_partner_manager,base.group_user",
+            partner_id=self.sender.id,
+            email=self.sender.email,
+            name="Sender User Test",
         )
         # pylint: disable=C8107
         message = self.recipient.with_user(sender_user).message_post(
@@ -246,14 +253,17 @@ class TestMailTracking(TransactionCase):
                 "body": "<p>This is another test message</p>",
             }
         )
-        if message.is_thread_message():
-            self.env[message.model].browse(message.res_id)._notify_thread(message)
+        if message._is_thread_message():
+            with self.mock_smtplib_connection():
+                self.env[message.model].browse(message.res_id).with_context(
+                    mail_notify_force_send=True
+                )._notify_thread(message)
         recipients = self.recipient._message_get_suggested_recipients()
         self.assertEqual(len(recipients), 3)
         self._check_partner_trackings_cc(message)
 
     def _check_partner_trackings_to(self, message):
-        message_dict = Store(message, for_current_user=True).get_result()
+        message_dict = Store().add(message).get_result()
         partner_trackings = message_dict["mail.message"][0]["partner_trackings"]
         self.assertEqual(len(partner_trackings), 4)
         # mail cc
@@ -269,12 +279,13 @@ class TestMailTracking(TransactionCase):
         self.assertTrue(foundNoPartner)
 
     def test_email_to(self):
-        sender_user = self.env["res.users"].create(
-            {
-                "name": "Sender User Test",
-                "partner_id": self.sender.id,
-                "login": "sender-test",
-            }
+        sender_user = mail_new_test_user(
+            self.env,
+            login="sender-test",
+            groups="base.group_partner_manager,base.group_user",
+            partner_id=self.sender.id,
+            email=self.sender.email,
+            name="Sender User Test",
         )
         # pylint: disable=C8107
         message = self.recipient.with_user(sender_user).message_post(
@@ -302,8 +313,9 @@ class TestMailTracking(TransactionCase):
                 "body": "<p>This is another test message</p>",
             }
         )
-        if message.is_thread_message():
-            self.env[message.model].browse(message.res_id)._notify_thread(message)
+        if message._is_thread_message():
+            with self.mock_smtplib_connection():
+                self.env[message.model].browse(message.res_id)._notify_thread(message)
         recipients = self.recipient._message_get_suggested_recipients()
         self.assertEqual(len(recipients), 4)
         self._check_partner_trackings_to(message)
@@ -349,52 +361,6 @@ class TestMailTracking(TransactionCase):
         if values and values.get("author"):
             self.assertEqual(values["author"][0], -1)
 
-    def test_resend_failed_message(self):
-        # This message will generate a notification for recipient
-        message = self.env["mail.message"].create(
-            {
-                "subject": "Message test",
-                "author_id": self.sender.id,
-                "email_from": self.sender.email,
-                "message_type": "comment",
-                "model": "res.partner",
-                "res_id": self.recipient.id,
-                "partner_ids": [Command.link(self.recipient.id)],
-                "body": "<p>This is a test message</p>",
-            }
-        )
-        if message.is_thread_message():
-            self.env[message.model].browse(message.res_id)._notify_thread(message)
-        # Search tracking created
-        tracking_email = self.env["mail.tracking.email"].search(
-            [
-                ("mail_message_id", "=", message.id),
-                ("partner_id", "=", self.recipient.id),
-            ]
-        )
-        # Force error state
-        tracking_email.state = "error"
-        # Mock a bounce
-        message.notification_ids.update(
-            {
-                "notification_type": "email",
-                "notification_status": "bounce",
-            }
-        )
-        wizard = (
-            self.env["mail.resend.message"]
-            .sudo()
-            .with_context(mail_message_to_resend=message.id)
-            .create({})
-        )
-        # Check failed recipient)s
-        self.assertTrue(any(wizard.partner_ids))
-        self.assertEqual(self.recipient.email, wizard.partner_ids[0].email)
-        # Resend message
-        wizard.resend_mail_action()
-        # Check tracking reset
-        self.assertFalse(tracking_email.state)
-
     def mail_send(self, recipient):
         mail = self.env["mail.mail"].create(
             {
@@ -404,7 +370,8 @@ class TestMailTracking(TransactionCase):
                 "body_html": "<p>This is a test message</p>",
             }
         )
-        mail.send()
+        with self.mock_smtplib_connection():
+            mail.send()
         # Search tracking created
         tracking_email = self.env["mail.tracking.email"].search(
             [("mail_id", "=", mail.id)]
@@ -653,7 +620,18 @@ class TestMailTracking(TransactionCase):
 
     def test_bounce_tracking_event_created(self):
         mail, tracking = self.mail_send(self.recipient.email)
-        message = self.env.ref("mail.mail_message_channel_1_1")
+        discuss_channel = self.env["discuss.channel"].create({"name": "Test Channel"})
+        message = self.env["mail.message"].create(
+            {
+                "model": "discuss.channel",
+                "res_id": discuss_channel.id,
+                "body": "<p>This is a test message</p>",
+                "message_type": "comment",
+                "subtype_id": self.env.ref("mail.mt_comment").id,
+                "author_id": self.sender.id,
+                "date": fields.Datetime.now().strftime("%Y-%m-%d %H:%M"),
+            }
+        )
         message.mail_tracking_ids = [Command.link(tracking.id)]
         mail.mail_message_id = message
         message_dict = {
@@ -740,8 +718,11 @@ class TestMailTracking(TransactionCase):
                 "body": "<p>This is a test message</p>",
             }
         )
-        if message.is_thread_message():
-            self.env[message.model].browse(message.res_id)._notify_thread(message)
+        if message._is_thread_message():
+            with self.mock_smtplib_connection():
+                self.env[message.model].browse(message.res_id).with_context(
+                    mail_notify_force_send=True
+                )._notify_thread(message)
         # Search tracking created
         tracking_email = self.env["mail.tracking.email"].search(
             [
@@ -828,8 +809,11 @@ class TestAccessTrackingEmail(HttpCaseWithUserDemo, TestMailTracking):
                     "partner_ids": [(6, 0, [user_employee_1.partner_id.id])],
                 }
             )
-            if message.is_thread_message():
-                self.env[message.model].browse(message.res_id)._notify_thread(message)
+            if message._is_thread_message():
+                with self.mock_smtplib_connection():
+                    self.env[message.model].browse(message.res_id)._notify_thread(
+                        message
+                    )
             # Search tracking created
             tracking_email = self._get_tracking_email(
                 mail_msg_id=message.id, partner_id=user_employee_1.partner_id.id

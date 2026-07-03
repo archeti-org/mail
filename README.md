@@ -21,11 +21,20 @@ Available addons
 ----------------
 addon | version | maintainers | summary
 --- | --- | --- | ---
-[mail_activity_reminder](mail_activity_reminder/) | 19.0.1.0.0 |  | Reminder notifications about planned activities
+[base_user_signature](base_user_signature/) | 19.0.1.0.0 | <a href='https://github.com/imlopes'><img src='https://github.com/imlopes.png' width='32' height='32' style='border-radius:50%;' alt='imlopes'/></a> | Base User Signature
+[mail_activity_board](mail_activity_board/) | 19.0.1.0.0 |  | Add Activity Boards
+[mail_activity_reminder](mail_activity_reminder/) | 19.0.1.0.1 |  | Reminder notifications about planned activities
+[mail_activity_team](mail_activity_team/) | 19.0.1.0.0 |  | Add Teams to Activities
+[mail_attach_existing_attachment](mail_attach_existing_attachment/) | 19.0.1.0.0 |  | Adding attachment on the object by sending this one
+[mail_message_search](mail_message_search/) | 19.0.1.0.0 | <a href='https://github.com/yostashiro'><img src='https://github.com/yostashiro.png' width='32' height='32' style='border-radius:50%;' alt='yostashiro'/></a> <a href='https://github.com/aungkokolin1997'><img src='https://github.com/aungkokolin1997.png' width='32' height='32' style='border-radius:50%;' alt='aungkokolin1997'/></a> | Mail Message Search
 [mail_optional_autofollow](mail_optional_autofollow/) | 19.0.1.0.0 |  | Choose if you want to automatically add new recipients as followers on mail.compose.message
 [mail_outbound_static](mail_outbound_static/) | 19.0.1.0.0 |  | Allows you to configure the from header for a mail server.
+[mail_partner_opt_out](mail_partner_opt_out/) | 19.0.1.0.0 |  | Add the partner's email to the blackmailed list
 [mail_post_defer](mail_post_defer/) | 19.0.1.0.0 | <a href='https://github.com/Yajo'><img src='https://github.com/Yajo.png' width='32' height='32' style='border-radius:50%;' alt='Yajo'/></a> | Faster and cancellable outgoing messages
+[mail_restrict_follower_selection](mail_restrict_follower_selection/) | 19.0.1.0.0 |  | Define a domain from which followers can be selected
+[mail_restrict_send_button](mail_restrict_send_button/) | 19.0.1.0.0 |  | Security for Send Message Button on Chatter Area
 [mail_send_confirmation](mail_send_confirmation/) | 19.0.1.0.0 |  | Mail Send Confirmation
+[mail_tracking](mail_tracking/) | 19.0.1.0.4 |  | Email tracking system for all mails sent
 
 [//]: # (end addons)
 
